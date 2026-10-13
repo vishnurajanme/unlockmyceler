@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "UnlockMyCeler Auto-Approver",
+  "version": "1.0",
+  "description": "Automates the CelerSCET question approval workflow.",
+  "permissions": [
+    "scripting",
+    "activeTab"
+  ],
+  "action": {
+    "default_title": "Start Automation"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.celerscet.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["logo.mp4"],
+      "matches": ["*://*.celerscet.com/*"]
+    }
+  ]
+}
