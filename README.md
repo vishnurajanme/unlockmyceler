@@ -1,6 +1,6 @@
 # UnlockMyCeler
 
-![UnlockMyCeler Screenshot](images/logo.png)
+![UnlockMyCeler Screenshot](logo.png)
 
 UnlockMyCeler is a Chrome extension designed to automate the repetitive question-approval workflow on `celerscet.com`.
 
