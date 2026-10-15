@@ -16,7 +16,6 @@ Moving beyond hardcoded scripts, this extension features a **Record & Replay Tra
 - **Smart Table Sweeper:** Intelligently ignores intermediate table dropdowns during training, automatically sweeping and filling them all with "Yes" during playback to save time.
 - **Dynamic Warning Bypass:** Automatically anticipates conditional popups (e.g., "Record the decision anyway"). It handles them if they appear and seamlessly skips them if they don't.
 - **Queue Synchronization:** Physically pauses the automation loop until the server refreshes and the processed question card is removed from the DOM.
-- **Animated Branding:** Features a looping video logo (`logo.mp4`) inside the HUD, with an emoji fallback if the file is missing.
 
 ## How It Works
 
