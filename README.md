@@ -2,109 +2,40 @@
 
 ![UnlockMyCeler Screenshot](logo.png)
 
-UnlockMyCeler is a Chrome extension designed to automate the repetitive question-approval workflow on `celerscet.com`.
+UnlockMyCeler is a lightweight Robotic Process Automation (RPA) Chrome extension designed to streamline the repetitive question-approval workflow on `celerscet.com`. 
 
-It adds a floating control panel to the page, detects questions in the approval queue, and processes them one at a time by selecting **Approved**, recording the decision, and waiting for the queue to refresh.
+Moving beyond hardcoded scripts, this extension features a **Record & Replay Training Engine**. Users manually process a single question to "teach" the bot the exact workflow. The extension saves this sequence as a profile and dynamically loops it until the approval queue is entirely clear.
 
-> **Important:** The extension automatically selects “Approved” without evaluating the content or correctness of a question. Use it only when you are authorized to approve the questions and automatic approval is appropriate.
+> **Important:** This extension automatically repeats your trained decisions across all items in the queue without independently evaluating the specific content or correctness of each question. Use it only when authorized and when bulk automatic approval is appropriate.
 
 ## Features
 
-- Floating control panel with queue count, progress, status messages, and logs.
-- Automatically detects questions in the approval queue.
-- Opens a question and navigates through the **Scrutiny** and **Decision** steps.
-- Selects the **Approved** option.
-- Clicks **Record decision** and **Done**.
-- Waits for the question dialog to close and the queue to refresh before processing the next question.
-- Continues until the queue is empty or an error occurs.
-- Provides Start/Pause controls.
-- Displays an animated video logo when `logo.mp4` is available, with an emoji fallback.
+- **Draggable Control HUD:** A floating user interface featuring queue counts, progress tracking, and a live terminal log. Drag the handle (⣿) to move it anywhere on your screen.
+- **Training Mode:** Records your specific click sequences and dropdown decisions to build a custom automation profile on the fly.
+- **Persistent Storage:** Saves your trained workflow locally across browser sessions using `chrome.storage.local`.
+- **Smart Table Sweeper:** Intelligently ignores intermediate table dropdowns during training, automatically sweeping and filling them all with "Yes" during playback to save time.
+- **Dynamic Warning Bypass:** Automatically anticipates conditional popups (e.g., "Record the decision anyway"). It handles them if they appear and seamlessly skips them if they don't.
+- **Queue Synchronization:** Physically pauses the automation loop until the server refreshes and the processed question card is removed from the DOM.
+- **Animated Branding:** Features a looping video logo (`logo.mp4`) inside the HUD, with an emoji fallback if the file is missing.
 
 ## How It Works
 
-### 1. Background Script (`background.js`)
+### 1. The Background Script (`background.js`)
+- Listens for clicks on the Chrome extension icon in the toolbar.
+- Ensures the active tab is `celerscet.com`.
+- Dispatches a `START_APPROVAL_AUTOMATION` event to instantly trigger the playback loop if a profile is already trained and saved.
 
-- Listens for clicks on the Chrome extension icon.
-- Checks whether the active tab URL contains `celerscet.com`.
-- Injects a function that dispatches a `START_APPROVAL_AUTOMATION` custom event on the page.
-
-**Note:** The supplied `content.js` does not listen for this custom event. Therefore, clicking the extension icon does not directly start the automation through this event. The floating panel's **Start Automation** button starts the automation directly.
-
-### 2. Content Script (`content.js`)
-
-- Creates the floating control panel.
-- Detects the number of questions in the approval queue.
-- Monitors page changes to update the queue status.
-- Locates and opens each question.
-- Navigates through Scrutiny and Decision.
-- Selects Approved and records the decision.
-- Waits for the queue to refresh before continuing.
-- Displays progress, logs, and errors.
-- Stops when all questions are processed or an error occurs.
+### 2. The Content Script (`content.js`)
+- **State Management:** Injects the draggable HUD and uses a `MutationObserver` to constantly watch the page, locking the UI if the page is loading or the queue is empty.
+- **Profile Recorder:** When "Train Profile" is clicked, it intercepts DOM events, generates resilient CSS/text-based selectors for the elements you interact with, and logs them.
+- **Playback Engine:** When "Run Loop" is clicked, it maps over your saved profile array, utilizing 50ms polling intervals to click buttons the millisecond they render, sweeping dropdowns, and waiting for modal dismounts.
 
 ## Project Structure
 
 ```text
 UnlockMyCeler/
-├── manifest.json    # Chrome extension configuration (required)
+├── manifest.json    # Chrome extension config (Permissions: scripting, activeTab, storage)
 ├── background.js    # Extension toolbar-click handler
-├── content.js       # Automation logic and floating UI
-├── logo.mp4         # Optional animated video logo
+├── content.js       # RPA engine, DOM observers, and draggable UI
+├── logo.mp4         # Looping animated video logo
 └── README.md        # Project documentation
-```
-
-The uploaded files include `background.js` and `content.js`. The `manifest.json` and `logo.mp4` files were not provided.
-
-## Installation
-
-The supplied JavaScript files alone are not a complete installable Chrome extension. A suitable `manifest.json` is also required.
-
-1. Place the extension files in a single folder.
-2. Create a Manifest V3 `manifest.json` with the necessary permissions, content-script configuration, and extension action.
-3. Add `logo.mp4` if you want to use the video logo.
-4. Open Chrome and navigate to `chrome://extensions`.
-5. Enable **Developer mode**.
-6. Click **Load unpacked**.
-7. Select the extension folder.
-8. Open `celerscet.com` and navigate to the question-approval queue.
-
-Ensure that the manifest permissions match the extension's actual requirements.
-
-## Usage
-
-1. Sign in to `celerscet.com` using an account authorized to approve questions.
-2. Open the page containing the question-approval queue.
-3. Open the extension's floating control panel.
-4. Check the displayed queue count.
-5. Click **Start Automation**.
-6. Monitor the status messages, progress indicator, and logs.
-7. Pause the automation if anything unexpected happens.
-
-The extension is designed to stop if required elements cannot be found within the configured timeout periods.
-
-## Technical Details
-
-- **Platform:** Google Chrome
-- **Technology:** JavaScript and Chrome Extension APIs
-- **Manifest version:** Intended for Manifest V3; the manifest was not supplied.
-- **Target website:** `celerscet.com`
-- **Question detection:** `.apv-qitem__no`
-- **Question dialog:** `.apv-qpop`
-- **Element timeout:** 10 seconds by default
-- **Queue refresh timeout:** 15 seconds
-- **Page monitoring:** `MutationObserver`
-- **User interface:** Dynamically injected HTML and CSS
-
-## Limitations
-
-- **Website-specific selectors:** The extension relies on specific CSS classes and button labels. Website updates may break the automation.
-- **No question validation:** The extension does not evaluate question quality or correctness before selecting Approved.
-- **Toolbar event mismatch:** `background.js` dispatches `START_APPROVAL_AUTOMATION`, but `content.js` does not register a listener for it.
-- **Missing configuration:** The uploaded files do not include `manifest.json`.
-- **Optional asset:** The video logo requires `logo.mp4`.
-- **Timeout errors:** Slow loading or changes in the website interface may cause the automation to stop.
-- **Approval verification:** The script waits for the question to disappear from the queue but does not independently verify the saved decision on the server.
-
-## License
-
-No license information was included with the supplied files. Add an appropriate license before redistributing the project if you want to define its reuse terms.
