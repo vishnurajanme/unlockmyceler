@@ -1,5 +1,5 @@
 /**
- * UnlockMyCeler - Dynamic Dropdown & RPA Engine
+ * UnlockMyCeler - RPA Engine with Live Visual Mouse & Soft-Fail Skipping
  */
 
 (function () {
@@ -45,7 +45,6 @@
     });
   }
 
-  // Waits for ANY of the provided texts (useful for conditional warnings)
   function waitForMultipleTexts(selector, texts, timeout = 10000) {
     const startTime = Date.now();
     return new Promise((resolve, reject) => {
@@ -104,6 +103,87 @@
     return Array.from(badges)
       .map(badge => badge.closest('.apv-qitem__head') || badge.closest('.apv-qitem'))
       .filter(Boolean);
+  }
+
+  // --- VISUAL MOUSE ENGINE ---
+
+  function injectFakeMouse() {
+    if (document.getElementById('celer-fake-mouse')) return;
+
+    // Mouse Pointer
+    const mouse = document.createElement('div');
+    mouse.id = 'celer-fake-mouse';
+    mouse.style.position = 'fixed';
+    mouse.style.width = '24px';
+    mouse.style.height = '24px';
+    mouse.style.backgroundImage = 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M7 2l12 11.2h-5.8l3.3 7.3-2.2.9-3.2-7.4-4.4 4.8z" stroke="white" stroke-width="1.5" fill="black"/></svg>\')';
+    mouse.style.backgroundSize = 'contain';
+    mouse.style.backgroundRepeat = 'no-repeat';
+    mouse.style.zIndex = '9999999';
+    mouse.style.pointerEvents = 'none';
+    mouse.style.transition = 'top 0.4s ease-in-out, left 0.4s ease-in-out';
+    mouse.style.left = '50%';
+    mouse.style.top = '50%';
+    mouse.style.display = 'none';
+    document.body.appendChild(mouse);
+
+    // Ripple Click Effect
+    const effect = document.createElement('div');
+    effect.id = 'celer-click-effect';
+    effect.style.position = 'fixed';
+    effect.style.width = '30px';
+    effect.style.height = '30px';
+    effect.style.border = '3px solid rgba(14, 102, 148, 0.8)';
+    effect.style.backgroundColor = 'rgba(14, 102, 148, 0.2)';
+    effect.style.borderRadius = '50%';
+    effect.style.zIndex = '9999998';
+    effect.style.pointerEvents = 'none';
+    effect.style.transform = 'scale(0)';
+    effect.style.opacity = '0';
+    document.body.appendChild(effect);
+  }
+
+  async function moveMouseAndClick(element, triggerNativeClick = true) {
+    const mouse = document.getElementById('celer-fake-mouse');
+    const effect = document.getElementById('celer-click-effect');
+
+    if (!mouse || !effect || !element) {
+      if (triggerNativeClick && element) element.click();
+      return;
+    }
+
+    mouse.style.display = 'block';
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await sleep(250);
+
+    const rect = element.getBoundingClientRect();
+    const targetX = rect.left + (rect.width / 2);
+    const targetY = rect.top + (rect.height / 2);
+
+    mouse.style.left = `${targetX}px`;
+    mouse.style.top = `${targetY}px`;
+
+    await sleep(400);
+
+    effect.style.left = `${targetX - 15}px`;
+    effect.style.top = `${targetY - 15}px`;
+
+    effect.style.transition = 'none';
+    effect.style.transform = 'scale(0)';
+    effect.style.opacity = '1';
+
+    void effect.offsetWidth;
+
+    effect.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+    effect.style.transform = 'scale(1.5)';
+    effect.style.opacity = '0';
+
+    await sleep(150);
+
+    if (triggerNativeClick) {
+      element.click();
+    }
   }
 
   // --- HUD DRAG LOGIC ---
@@ -209,6 +289,7 @@
       document.getElementById('hud-train-btn').addEventListener('click', toggleTraining);
       document.getElementById('hud-run-btn').addEventListener('click', toggleAutomation);
 
+      injectFakeMouse();
       loadProfile();
       setupQueueObserver();
 
@@ -342,8 +423,6 @@
     if (!isTraining || e.target.tagName !== 'SELECT') return;
     const selectedText = e.target.options[e.target.selectedIndex].text.trim();
 
-    // Ignore "Yes" or "No" from the table so they don't bloat the profile.
-    // The script will dynamically auto-fill all available "Yes" options during playback.
     if (['Yes', 'No', 'N/A'].includes(selectedText)) {
       logMessage(`Ignored table select. Will auto-fill during loop.`, 'warn');
       return;
@@ -362,59 +441,67 @@
       const step = savedProfile[i];
       updateHUDState(`Executing step ${i + 1}/${savedProfile.length}...`, 'info');
 
-      if (step.action === 'click') {
-        if (step.type === 'card') {
-          const qBadge = await waitForElement('.apv-qitem__no');
-          const clickArea = qBadge.closest('.apv-qitem__head') || qBadge.closest('.apv-qitem');
-          clickArea.click();
-        } else if (step.type === 'text') {
+      // SOFT-FAIL TRY/CATCH BLOCK: Skips missing steps automatically
+      try {
+        if (step.action === 'click') {
+          if (step.type === 'card') {
+            const qBadge = await waitForElement('.apv-qitem__no');
+            const clickArea = qBadge.closest('.apv-qitem__head') || qBadge.closest('.apv-qitem');
+            await moveMouseAndClick(clickArea);
+          } else if (step.type === 'text') {
 
-          // Smart bypass for conditional warnings (Record the decision anyway)
-          if (step.value.toLowerCase() === 'record the decision anyway') {
-            const result = await waitForMultipleTexts('.apv-qpop button, .apv-qpop div[role="button"], .apv-qpop .apv-step', [step.value, 'Done']);
-            result.element.click();
+            if (step.value.toLowerCase() === 'record the decision anyway') {
+              // Reduced timeout for conditional warnings
+              const result = await waitForMultipleTexts('.apv-qpop button, .apv-qpop div[role="button"], .apv-qpop .apv-step', [step.value, 'Done'], 5000);
+              await moveMouseAndClick(result.element);
 
-            // If the warning didn't pop up and we clicked 'Done' directly, skip the next 'Done' step
-            if (result.textFound.toLowerCase() === 'done') {
-              logMessage('Warning skipped. Clicked Done directly.', 'info');
-              if (i + 1 < savedProfile.length && savedProfile[i + 1].value.toLowerCase() === 'done') {
-                i++; // Fast-forward profile index
+              if (result.textFound.toLowerCase() === 'done') {
+                logMessage('Warning skipped. Clicked Done directly.', 'info');
+                if (i + 1 < savedProfile.length && savedProfile[i + 1].value.toLowerCase() === 'done') {
+                  i++;
+                }
+              }
+            } else {
+              // Reduced timeout (5000ms) prevents the bot from hanging if a step is optional
+              const btn = await waitForElementByText('.apv-qpop button, .apv-qpop div[role="button"], .apv-qpop .apv-step', step.value, 5000);
+              await moveMouseAndClick(btn);
+            }
+          }
+          await sleep(400);
+
+        } else if (step.action === 'select') {
+          await sleep(250); // Buffer for React to render dropdowns if a tab was just clicked
+          const allSelects = Array.from(document.querySelectorAll('.apv-qpop select'));
+          let mainSelectFound = false;
+
+          for (const sel of allSelects) {
+            const targetOpt = Array.from(sel.options).find(o => o.text.trim() === step.value);
+
+            if (targetOpt) {
+              await moveMouseAndClick(sel, false);
+              const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+              nativeSetter.call(sel, targetOpt.value);
+              sel.dispatchEvent(new Event('change', { bubbles: true }));
+              mainSelectFound = true;
+            } else {
+              const yesOpt = Array.from(sel.options).find(o => o.text.trim() === 'Yes');
+              if (yesOpt && sel.value !== yesOpt.value) {
+                await moveMouseAndClick(sel, false);
+                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+                nativeSetter.call(sel, yesOpt.value);
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
               }
             }
+          }
+
+          if (!mainSelectFound) {
+            logMessage(`Skipped optional dropdown: ${step.value}`, 'warn');
           } else {
-            const btn = await waitForElementByText('.apv-qpop button, .apv-qpop div[role="button"], .apv-qpop .apv-step', step.value);
-            btn.click();
+            await sleep(350);
           }
         }
-        await sleep(500);
-
-      } else if (step.action === 'select') {
-        // DYNAMIC TABLE SWEEP: Find all selects. Set table ones to 'Yes', set main one to the recorded value.
-        const allSelects = Array.from(document.querySelectorAll('.apv-qpop select'));
-        let mainSelectFound = false;
-
-        for (const sel of allSelects) {
-          const targetOpt = Array.from(sel.options).find(o => o.text.trim() === step.value);
-
-          if (targetOpt) {
-            // This is the main decision dropdown
-            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-            nativeSetter.call(sel, targetOpt.value);
-            sel.dispatchEvent(new Event('change', { bubbles: true }));
-            mainSelectFound = true;
-          } else {
-            // This is a table dropdown. Auto-select 'Yes'.
-            const yesOpt = Array.from(sel.options).find(o => o.text.trim() === 'Yes');
-            if (yesOpt) {
-              const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-              nativeSetter.call(sel, yesOpt.value);
-              sel.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          }
-        }
-
-        if (!mainSelectFound) throw new Error(`Could not find dropdown option: ${step.value}`);
-        await sleep(350);
+      } catch (err) {
+        logMessage(`Skipped optional step: ${step.value || step.type}`, 'warn');
       }
     }
 
@@ -434,6 +521,10 @@
       runBtn.textContent = 'Run Loop';
       runBtn.style.background = '#0e6694';
       updateHUDState('Automation paused.', 'warn');
+
+      const mouse = document.getElementById('celer-fake-mouse');
+      if (mouse) mouse.style.display = 'none';
+
       updateQueueState();
       return;
     }
