@@ -29,6 +29,17 @@ Moving beyond hardcoded scripts, this extension features a **Record & Replay Tra
 - **Profile Recorder:** When "Train Profile" is clicked, it intercepts DOM events, generates resilient CSS/text-based selectors for the elements you interact with, and logs them.
 - **Playback Engine:** When "Run Loop" is clicked, it maps over your saved profile array, utilizing 50ms polling intervals to click buttons the millisecond they render, sweeping dropdowns, and waiting for modal dismounts.
 
+### 3. Installation
+
+Since this is a custom, unpackaged Chrome extension, it must be loaded in Developer Mode:
+
+1. **Download the Files:** Download or clone this repository so all project files (`manifest.json`, `content.js`, `background.js`, `logo.mp4`, `README.md`) are located in a single folder on your computer.
+2. **Open Extensions Page:** Open Google Chrome and type `chrome://extensions/` in the URL bar, then press Enter.
+3. **Enable Developer Mode:** Toggle the **Developer mode** switch in the top-right corner of the Extensions page.
+4. **Load the Extension:** Click the **Load unpacked** button that appears in the top-left corner.
+5. **Select the Folder:** Browse to and select the folder containing your `UnlockMyCeler` files.
+6. **Activate:** The extension is now installed! Open `sahrdaya.celerscet.com` and navigate to your approvals dashboard to see the HUD inject automatically.
+
 ## Project Structure
 
 ```text
